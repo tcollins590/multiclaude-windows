@@ -9,7 +9,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>MultiClaude</AssemblyName>
     <RootNamespace>MultiClaude</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Product>MultiClaude for Windows</Product>
     <Description>Run several Claude desktop accounts side by side. Tray app, one click per account.</Description>
     <ApplicationManifest>app.manifest</ApplicationManifest>

@@ -43,8 +43,8 @@ by Soma Labs. It follows the same design, rewritten for Windows. See [Credits](#
   **Copy MCP Servers From**. Its config is backed up first.
 - **Survives Claude updates.** When Claude updates itself it restarts on the default account only.
   MultiClaude notices the new version and reopens each profile on its own account.
-- **Open Alone to Sign In.** Closes your other accounts so a Google or SSO sign-in link returns to
-  the right window.
+- **Google and SSO sign-in that lands in the right window.** Each sign-in returns to the account
+  that started it, with nothing to set up. See [Signing in](#signing-in-with-google-or-sso).
 - **Keep Awake** for long Claude Code runs: 30 minutes to 8 hours, or until you turn it off,
   optionally keeping the display on too.
 - **Shortcuts.** Ctrl+Alt+Shift+M opens the panel. Turn on account shortcuts and
@@ -77,16 +77,18 @@ keep it in view, then turn on **Settings → Launch at Sign-In**.
 
 Right-click the tray icon for a quick menu with every account, Settings and Keep Awake.
 
-### Signing in
+### Signing in with Google or SSO
 
 Claude's Google and SSO sign-in comes back from the browser through a `claude://` link, and Windows
-hands that link to the Claude that registered it, usually your default account. Two ways around it:
+gives that link to your default Claude, not to the window that asked for it. With MultiClaude
+running, the link goes to the Claude window you started the sign-in from instead: click
+**Continue with Google** in the new profile's window, finish in the browser, and you land back in
+that profile. Nothing to set up.
 
-- Choose **sign in with an email code** in the new profile's window, which never leaves the window, or
-- right-click the profile → **Open Alone to Sign In**, which closes your other accounts first so the
-  link can only land in this one.
-
-Each profile remembers its sign-in afterwards.
+If a sign-in still lands in the wrong window, sign in with an **email code** in the profile's window,
+or right-click the profile → **Open Alone to Sign In**, which closes your other accounts first so the
+link can only land there. Each profile remembers its sign-in afterwards. **Settings → Send Sign-In
+Links to the Right Account** turns the routing off.
 
 ## How it works
 
@@ -104,6 +106,14 @@ Each profile remembers its sign-in afterwards.
   (`MultiClaude.Profile.<id>`), icon and relaunch command, then re-adds the button so the taskbar
   picks it up. The Start menu shortcut carries the same ID, so a pinned shortcut and the running
   window share one button.
+- **Sign-in links.** Windows opens a `claude://` link by starting Claude with the link and no data
+  folder; that process passes the link to the default account's window within a second or two and
+  exits. While another account's window was the last Claude in front, MultiClaude checks for that
+  short-lived process every 120 ms, stops it before it passes the link on, and starts Claude on the
+  right account's folder with the link instead, which Claude hands to that account's open window.
+  Nothing is registered or changed in Windows for this, and if MultiClaude ever misses one, the link
+  goes to the default account as it would without MultiClaude. The log keeps only the link's path,
+  never its sign-in code.
 - **Updates.** When the installed Claude version changes, profiles that closed in the last ten
   minutes (and weren't quit from MultiClaude) are reopened.
 - **Settings** are in `%APPDATA%\MultiClaude\config.json`. Icons and a small log are in
@@ -145,7 +155,7 @@ cd multiclaude-windows
 
 Everything is in [`src/`](src): `TrayApp.cs` (the tray, menus and polling), `PanelForm.cs` (the
 panel), `ClaudeApp.cs` (finding, opening and quitting Claude), `Native.cs` (Win32 and shell
-interop), `Icons.cs` and `Config.cs`. No NuGet packages.
+interop), `LinkRouter.cs` (sign-in links), `Icons.cs` and `Config.cs`. No NuGet packages.
 
 Pushing a `v*` tag builds both executables on GitHub Actions and publishes a release.
 

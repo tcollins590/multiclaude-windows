@@ -309,6 +309,20 @@ internal static class Native
         finally { Marshal.ReleaseComObject(link); }
     }
 
+    // ---- foreground changes ---------------------------------------------
+
+    public delegate void WinEventProc(IntPtr hook, uint ev, IntPtr hwnd, int idObject, int idChild, uint thread, uint time);
+
+    [DllImport("user32.dll")]
+    static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr module, WinEventProc proc, uint pid, uint thread, uint flags);
+
+    /// <summary>Calls back on this thread whenever another window comes to the front. Keep the delegate alive.</summary>
+    public static IntPtr OnForegroundChange(WinEventProc proc)
+    {
+        const uint EVENT_SYSTEM_FOREGROUND = 3, WINEVENT_OUTOFCONTEXT = 0;
+        return SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, proc, 0, 0, WINEVENT_OUTOFCONTEXT);
+    }
+
     // ---- misc ------------------------------------------------------------
 
     [DllImport("dwmapi.dll")]

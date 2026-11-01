@@ -31,6 +31,7 @@ internal sealed class Settings
     public bool PanelHotkey { get; set; } = true;
     public bool ProfileHotkeys { get; set; }
     public bool KeepDisplayOn { get; set; }
+    public bool RouteSignInLinks { get; set; } = true;
 }
 
 internal sealed class Config

@@ -88,15 +88,17 @@ internal static class ClaudeApp
     /// Starts Claude on a data folder. If that folder is already open, Claude's single-instance
     /// handling brings its window forward instead of opening a second copy.
     /// </summary>
-    public static void Launch(string? dataDir)
+    public static void Launch(string? dataDir, string? link = null)
     {
         string launcher = Launcher ?? throw new InvalidOperationException(
             "Claude for Windows is not installed. Get it from claude.ai/download.");
         if (dataDir != null) Directory.CreateDirectory(dataDir);
 
         Native.AllowSetForegroundWindow(Native.ASFW_ANY);
-        var psi = new ProcessStartInfo(launcher) { UseShellExecute = false, WorkingDirectory = Config.Home };
-        if (dataDir != null) psi.Arguments = $"--user-data-dir=\"{dataDir}\"";
+        var args = new List<string>();
+        if (dataDir != null) args.Add($"--user-data-dir=\"{dataDir}\"");
+        if (link != null) args.Add($"\"{link}\"");
+        var psi = new ProcessStartInfo(launcher, string.Join(' ', args)) { UseShellExecute = false, WorkingDirectory = Config.Home };
         Process.Start(psi)?.Dispose();
     }
 

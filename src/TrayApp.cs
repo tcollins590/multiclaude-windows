@@ -30,6 +30,12 @@ internal sealed class TrayApp : ApplicationContext
     // keep awake
     DateTime? awakeUntil;
 
+    // sign-in links: the account whose window was in front last
+    readonly Native.WinEventProc foregroundProc;
+    readonly LinkRouter links;
+    string? lastClaudeProfileId;
+    DateTime lastClaudeAt;
+
     string trayKey = "";
     IntPtr trayHandle;
 
@@ -37,6 +43,9 @@ internal sealed class TrayApp : ApplicationContext
     {
         ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
         Config = Config.Load();
+        foregroundProc = (_, _, _, _, _, _, _) => Poll();
+        links = new LinkRouter((url, id) => ui.Post(_ => DeliverLink(url, id), null));
+        links.Start();
 
         var instances = ClaudeApp.Scan(out var defaultDir);
         if (defaultDir != null) Config.DefaultDataDir = defaultDir;
@@ -58,6 +67,7 @@ internal sealed class TrayApp : ApplicationContext
         poll.Tick += (_, _) => Poll();
         Poll();
         poll.Start();
+        Native.OnForegroundChange(foregroundProc);
 
         SyncShortcuts();
         Config.Save();
@@ -120,6 +130,8 @@ internal sealed class TrayApp : ApplicationContext
         int fgPid = Native.WindowProcessId(Native.GetForegroundWindow());
         foreach (var (id, inst) in running) if (inst.Pid == fgPid) front = id;
         if (front != FrontProfileId) { FrontProfileId = front; changed = true; }
+        if (front != null) { lastClaudeProfileId = front; lastClaudeAt = DateTime.Now; }
+        UpdateLinkTarget();
 
         if (Config.Settings.SeparateTaskbarButtons) TagWindows();
         UpdateKeepAwake();
@@ -474,6 +486,8 @@ internal sealed class TrayApp : ApplicationContext
             "Each account's windows get their own colored taskbar button. Turning it off applies the next time an account opens.");
         Toggle("Start Menu Shortcut per Account", s.StartMenuShortcuts, v => { s.StartMenuShortcuts = v; Config.Save(); SyncShortcuts(); },
             "\"Claude <name>\" in the Start menu, ready to pin to the taskbar.");
+        Toggle("Send Sign-In Links to the Right Account", s.RouteSignInLinks, v => { s.RouteSignInLinks = v; UpdateLinkTarget(); },
+            "Google and SSO sign-in come back to the Claude window you started them from, instead of the default account.");
         Toggle("Reopen Accounts After Claude Updates", s.ReopenAfterUpdate, v => s.ReopenAfterUpdate = v);
         Toggle("Quit Accounts with MultiClaude", s.QuitProfilesOnExit, v => s.QuitProfilesOnExit = v);
         m.Items.Add(new ToolStripSeparator());
@@ -682,6 +696,27 @@ internal sealed class TrayApp : ApplicationContext
     }
 
     // ---- messages and exit ----------------------------------------------
+
+    /// <summary>
+    /// The account that gets the next claude:// link: the one whose window was last in front, while
+    /// it's open and it's not the default account (which gets links anyway). Null leaves links alone.
+    /// </summary>
+    void UpdateLinkTarget()
+    {
+        Profile? target = null;
+        if (Config.Settings.RouteSignInLinks && lastClaudeProfileId != null &&
+            (DateTime.Now - lastClaudeAt).TotalMinutes < 30 &&
+            Config.Find(lastClaudeProfileId) is Profile p && !p.IsDefault && IsRunning(p))
+            target = p;
+        links.Target = target;
+    }
+
+    void DeliverLink(string url, string profileId)
+    {
+        if (Config.Find(profileId) is not Profile p) return;
+        try { links.Deliver(url, p); }
+        catch (Exception ex) { Error("Couldn't open the sign-in link", ex.Message); }
+    }
 
     void HandleMessage(string msg)
     {

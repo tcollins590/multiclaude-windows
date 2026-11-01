@@ -114,6 +114,9 @@ Links to the Right Account** turns the routing off.
   Nothing is registered or changed in Windows for this, and if MultiClaude ever misses one, the link
   goes to the default account as it would without MultiClaude. The log keeps only the link's path,
   never its sign-in code.
+- **Hardware acceleration.** If you turned off hardware acceleration in your default Claude (the
+  usual fix for a laggy window), each profile gets the same setting before it opens, unless it has
+  its own. Only that setting is copied; everything else stays per account.
 - **Updates.** When the installed Claude version changes, profiles that closed in the last ten
   minutes (and weren't quit from MultiClaude) are reopened.
 - **Settings** are in `%APPDATA%\MultiClaude\config.json`. Icons and a small log are in

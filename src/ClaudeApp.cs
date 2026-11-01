@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
@@ -198,4 +200,34 @@ internal static class ClaudeApp
     }
 
     public static string DesktopConfigPath(string dataDir) => Path.Combine(dataDir, "claude_desktop_config.json");
+
+    /// <summary>
+    /// Settings that fix how Claude draws on this PC rather than describe an account. If the user turned
+    /// off hardware acceleration in their default Claude (the usual fix for a laggy window), a profile
+    /// with its own fresh settings file would lag again; carry the choice over until the profile sets its own.
+    /// </summary>
+    static readonly string[] DisplaySettings = { "isHardwareAccelerationDisabled" };
+
+    public static void InheritDisplaySettings(string? defaultDir, string profileDir)
+    {
+        if (defaultDir == null || Config.SamePath(defaultDir, profileDir)) return;
+        try
+        {
+            string srcPath = DesktopConfigPath(defaultDir);
+            if (!File.Exists(srcPath) || JsonNode.Parse(File.ReadAllText(srcPath)) is not JsonObject src) return;
+
+            string dstPath = DesktopConfigPath(profileDir);
+            var dst = File.Exists(dstPath) ? JsonNode.Parse(File.ReadAllText(dstPath)) as JsonObject : new JsonObject();
+            if (dst == null) return;   // unreadable: leave the profile's file alone
+
+            bool changed = false;
+            foreach (string key in DisplaySettings)
+                if (src[key] is JsonNode value && !dst.ContainsKey(key)) { dst[key] = value.DeepClone(); changed = true; }
+            if (!changed) return;
+
+            Directory.CreateDirectory(profileDir);
+            File.WriteAllText(dstPath, dst.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex) { Log.Write("display settings: " + ex.Message); }
+    }
 }

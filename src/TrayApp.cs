@@ -203,6 +203,7 @@ internal sealed class TrayApp : ApplicationContext
         try
         {
             if (focus && running.TryGetValue(p.Id, out var inst)) ClaudeApp.FocusWindows(inst.Pid);
+            else if (p.DataDir != null) ClaudeApp.InheritDisplaySettings(ClaudeApp.DefaultDataDir(Config.DefaultDataDir), p.DataDir);
             ClaudeApp.Launch(p.DataDir);
             closedAt.Remove(p.Id);
             quitByUs.Remove(p.Id);

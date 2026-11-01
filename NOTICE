@@ -1,0 +1,16 @@
+MultiClaude for Windows
+Copyright 2026 Tyler Collins
+
+This product is an independent Windows port of the idea and design of MultiClaude for macOS
+by Quentin Caron / Soma Labs (https://github.com/QuentinCar0n/multiclaude), licensed under the
+Apache License 2.0. No source code, text or artwork from that project is included; the Windows
+app was written separately in C#.
+
+The Windows taskbar technique (per-window AppUserModelID tagging, re-adding the taskbar button,
+and keeping profile data outside the Store app's virtualized AppData) follows the approach
+documented by multi-claude by Thomas O.G. (https://github.com/thomasog/multi-claude), MIT License.
+
+Claude is a trademark of Anthropic, PBC. This project is not affiliated with or endorsed by
+Anthropic. It launches the official Claude desktop app and never modifies it. No Claude artwork
+ships with it: profile icons are recolored at run time from the logo of the Claude app installed
+on the user's computer.

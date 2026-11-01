@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build
+        shell: pwsh
+        run: ./build.ps1
+
+      - name: Collect
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory out | Out-Null
+          Copy-Item dist/MultiClaude.exe out/MultiClaude.exe
+          Copy-Item dist/self-contained/MultiClaude.exe out/MultiClaude-self-contained.exe
+          Get-FileHash out/*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content out/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MultiClaude
+          path: out/*
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $pre = if ('${{ github.ref_name }}' -match '-') { '--prerelease' } else { '' }
+          gh release create '${{ github.ref_name }}' out/MultiClaude.exe out/MultiClaude-self-contained.exe out/SHA256SUMS.txt `
+            --title "MultiClaude for Windows ${{ github.ref_name }}" --generate-notes $pre

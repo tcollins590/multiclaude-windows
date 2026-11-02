@@ -134,7 +134,11 @@ Some Claude features exist once per computer, so all profiles share them:
 - **Open at login** in Claude's own settings: leave it alone in profiles. The Store build has one
   startup entry, so changing it in a profile changes it for your default Claude too. Use
   **Open When MultiClaude Starts** instead.
-- **Claude in Chrome** pairs with one Claude at a time, usually the one that started last.
+- **Claude in Chrome** pairs by account: the extension only talks to Claude windows signed in to the
+  same account as the extension. To use it from several accounts without signing out and back in,
+  give each account its own Chrome profile (profile picture → **Add**), install the extension in
+  each and sign it in to the matching account. Every account then drives its own Chrome window, at
+  the same time.
 - **Cowork** runs one VM per Windows user, so it works in one profile at a time.
 - **Tray icons.** Every Claude instance shows the same Claude tray icon. MultiClaude's panel and the
   taskbar buttons tell them apart.

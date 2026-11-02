@@ -45,6 +45,8 @@ by Soma Labs. It follows the same design, rewritten for Windows. See [Credits](#
   MultiClaude notices the new version and reopens each profile on its own account.
 - **Google and SSO sign-in that lands in the right window.** Each sign-in returns to the account
   that started it, with nothing to set up. See [Signing in](#signing-in-with-google-or-sso).
+- **Notifications that open the right account.** Clicking "Claude finished" opens the session in
+  the account it came from, not your default Claude.
 - **Keep Awake** for long Claude Code runs: 30 minutes to 8 hours, or until you turn it off,
   optionally keeping the display on too.
 - **Shortcuts.** Ctrl+Alt+Shift+M opens the panel. Turn on account shortcuts and
@@ -88,7 +90,7 @@ that profile. Nothing to set up.
 If a sign-in still lands in the wrong window, sign in with an **email code** in the profile's window,
 or right-click the profile → **Open Alone to Sign In**, which closes your other accounts first so the
 link can only land there. Each profile remembers its sign-in afterwards. **Settings → Send Sign-In
-Links to the Right Account** turns the routing off.
+and Notifications to the Right Account** turns the routing off.
 
 ## How it works
 
@@ -108,9 +110,17 @@ Links to the Right Account** turns the routing off.
   window share one button.
 - **Sign-in links.** Windows opens a `claude://` link by starting Claude with the link and no data
   folder; that process passes the link to the default account's window within a second or two and
-  exits. While another account's window was the last Claude in front, MultiClaude checks for that
-  short-lived process every 120 ms, stops it before it passes the link on, and starts Claude on the
-  right account's folder with the link instead, which Claude hands to that account's open window.
+  exits. While another account is open, MultiClaude checks for that short-lived process every
+  120 ms, stops it before it passes the link on, and starts Claude on the right account's folder
+  with the link instead, which Claude hands to that account's open window. The right account is the
+  one whose data folder holds the session the link names (`claude-code-sessions\…\local_<id>.json`),
+  or for sign-in, the account whose window was last in front.
+- **Notifications.** Claude's notifications name their session but carry no link, so clicking one
+  makes Windows start a plain Claude with no arguments, which goes to the default account. Windows
+  also removes the clicked notification from its notification history (`wpndatabase.db`, read with
+  Windows' built-in SQLite). MultiClaude stops that plain Claude, sees which notification just left
+  the history, and opens its session in the account that owns it. If no notification left (you
+  opened Claude from Start), it starts your default Claude as usual.
   Nothing is registered or changed in Windows for this, and if MultiClaude ever misses one, the link
   goes to the default account as it would without MultiClaude. The log keeps only the link's path,
   never its sign-in code.
@@ -119,8 +129,10 @@ Links to the Right Account** turns the routing off.
   its own. Only that setting is copied; everything else stays per account.
 - **Updates.** When the installed Claude version changes, profiles that closed in the last ten
   minutes (and weren't quit from MultiClaude) are reopened.
-- **Settings** are in `%APPDATA%\MultiClaude\config.json`. Icons and a small log are in
-  `%LOCALAPPDATA%\MultiClaude`.
+- **Settings** are in `%APPDATA%\MultiClaude\config.json`, and a small log is in
+  `%LOCALAPPDATA%\MultiClaude`. Profile icons are in `C:\Users\Public\MultiClaude`: the Windows 11
+  taskbar loads a button's icon from a sandboxed process that can't read anything inside your user
+  folder, so an icon kept there shows as a blank page.
 
 MultiClaude never modifies Claude. It doesn't patch, copy or re-sign the app, so Claude's updates
 keep working.
@@ -135,16 +147,11 @@ Some Claude features exist once per computer, so all profiles share them:
   startup entry, so changing it in a profile changes it for your default Claude too. Use
   **Open When MultiClaude Starts** instead.
 - **Claude in Chrome** pairs by account: the extension only talks to Claude windows signed in to the
-  same account as the extension. To use it from several accounts without signing out and back in,
-  give each account its own Chrome profile (profile picture → **Add**), install the extension in
-  each and sign it in to the matching account. Every account then drives its own Chrome window, at
-  the same time.
+  same account as the extension. For browsing from the other accounts, use Claude's built-in
+  browser, which works in every account with no pairing.
 - **Cowork** runs one VM per Windows user, so it works in one profile at a time.
 - **Tray icons.** Every Claude instance shows the same Claude tray icon. MultiClaude's panel and the
   taskbar buttons tell them apart.
-- **Taskbar icon color.** The colored icon on a profile's taskbar button comes from its Start menu
-  shortcut, which Windows picks up after it indexes the Start menu. Until then the button may show
-  a plain icon (the separate button and its name work right away).
 - **Claude Code inside the desktop app** (the Code tab) uses each profile's own account, but every
   profile shares `~/.claude`: Claude Code settings, skills, memory and transcripts. In a terminal,
   **Open Claude Code in Terminal** uses a separate `~/.claude-<name>` folder that signs in on its own.
@@ -162,14 +169,15 @@ cd multiclaude-windows
 
 Everything is in [`src/`](src): `TrayApp.cs` (the tray, menus and polling), `PanelForm.cs` (the
 panel), `ClaudeApp.cs` (finding, opening and quitting Claude), `Native.cs` (Win32 and shell
-interop), `LinkRouter.cs` (sign-in links), `Icons.cs` and `Config.cs`. No NuGet packages.
+interop), `LinkRouter.cs` (sign-in links and notifications), `NotificationHistory.cs`, `Icons.cs` and `Config.cs`. No NuGet packages.
 
 Pushing a `v*` tag builds both executables on GitHub Actions and publishes a release.
 
 ## Uninstall
 
 1. Right-click the tray icon → **Settings** → turn off **Launch at Sign-In**, then **Quit MultiClaude**.
-2. Delete `MultiClaude.exe`, `%APPDATA%\MultiClaude`, `%LOCALAPPDATA%\MultiClaude` and the
+2. Delete `MultiClaude.exe`, `%APPDATA%\MultiClaude`, `%LOCALAPPDATA%\MultiClaude`,
+   `C:\Users\Public\MultiClaude` and the
    `MultiClaude` folder in the Start menu (`%APPDATA%\Microsoft\Windows\Start Menu\Programs`).
 3. Your profiles' sign-ins and chats stay in `%USERPROFILE%\.multiclaude\profiles` until you delete
    that folder too.

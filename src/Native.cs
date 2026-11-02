@@ -204,7 +204,10 @@ internal static class Native
         try { return Get(store, KeyId); } catch { return null; } finally { Marshal.ReleaseComObject(store); }
     }
 
-    /// <summary>Gives a window its own taskbar identity. Relaunch properties must be set before the ID.</summary>
+    /// <summary>
+    /// Gives a window its own taskbar identity. Relaunch properties must be set before the ID. The
+    /// taskbar draws the button from the relaunch icon (without one it uses the relaunch exe's icon).
+    /// </summary>
     public static bool SetWindowAppId(IntPtr hwnd, string appId, string relaunchCommand, string displayName, string iconPath)
     {
         var iid = typeof(IPropertyStore).GUID;

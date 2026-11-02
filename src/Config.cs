@@ -47,7 +47,14 @@ internal sealed class Config
 
     public static string AppDataDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MultiClaude");
     public static string ConfigPath => Path.Combine(AppDataDir, "config.json");
-    public static string IconDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MultiClaude", "Icons");
+    /// <summary>
+    /// Profile icons live under C:\Users\Public on purpose: on Windows 11 the taskbar loads a window's
+    /// relaunch icon from a sandboxed process that can't read anything under the user's own profile,
+    /// and shows a blank page instead. One folder per Windows user.
+    /// </summary>
+    public static string IconDir => Path.Combine(
+        Environment.GetEnvironmentVariable("PUBLIC") ?? Path.Combine(Path.GetPathRoot(Home) ?? @"C:\", "Users", "Public"),
+        "MultiClaude", Program.UserKey);
     public static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
     /// <summary>

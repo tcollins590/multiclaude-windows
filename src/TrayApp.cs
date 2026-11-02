@@ -163,7 +163,11 @@ internal sealed class TrayApp : ApplicationContext
 
     // ---- taskbar identity ------------------------------------------------
 
-    public static string AppIdFor(Profile p) => "MultiClaude.Profile." + p.Id;
+    /// <summary>
+    /// The taskbar caches a button's icon per app ID, so the color is part of the ID: a new color gets
+    /// a new ID and shows at once. (A pinned button needs re-pinning from the Start menu after that.)
+    /// </summary>
+    public static string AppIdFor(Profile p) => $"MultiClaude.Profile.{p.Id}.{p.Color.TrimStart('#')}";
 
     /// <summary>
     /// Every Claude window declares the same AppUserModelID, so all accounts would stack on one taskbar
@@ -487,8 +491,8 @@ internal sealed class TrayApp : ApplicationContext
             "Each account's windows get their own colored taskbar button. Turning it off applies the next time an account opens.");
         Toggle("Start Menu Shortcut per Account", s.StartMenuShortcuts, v => { s.StartMenuShortcuts = v; Config.Save(); SyncShortcuts(); },
             "\"Claude <name>\" in the Start menu, ready to pin to the taskbar.");
-        Toggle("Send Sign-In Links to the Right Account", s.RouteSignInLinks, v => { s.RouteSignInLinks = v; UpdateLinkTarget(); },
-            "Google and SSO sign-in come back to the Claude window you started them from, instead of the default account.");
+        Toggle("Send Sign-In and Notifications to the Right Account", s.RouteSignInLinks, v => { s.RouteSignInLinks = v; UpdateLinkTarget(); },
+            "Google and SSO sign-in come back to the Claude window you started them from, and a clicked notification opens the account it came from, instead of the default account.");
         Toggle("Reopen Accounts After Claude Updates", s.ReopenAfterUpdate, v => s.ReopenAfterUpdate = v);
         Toggle("Quit Accounts with MultiClaude", s.QuitProfilesOnExit, v => s.QuitProfilesOnExit = v);
         m.Items.Add(new ToolStripSeparator());
@@ -699,24 +703,33 @@ internal sealed class TrayApp : ApplicationContext
     // ---- messages and exit ----------------------------------------------
 
     /// <summary>
-    /// The account that gets the next claude:// link: the one whose window was last in front, while
-    /// it's open and it's not the default account (which gets links anyway). Null leaves links alone.
+    /// What the link router works from: every open account with its data folder (to find which one
+    /// holds a notification's session), and for sign-in links the account whose window was last in
+    /// front, while it's open and not the default account (which gets links anyway).
     /// </summary>
     void UpdateLinkTarget()
     {
+        bool on = Config.Settings.RouteSignInLinks;
         Profile? target = null;
-        if (Config.Settings.RouteSignInLinks && lastClaudeProfileId != null &&
+        if (on && lastClaudeProfileId != null &&
             (DateTime.Now - lastClaudeAt).TotalMinutes < 30 &&
             Config.Find(lastClaudeProfileId) is Profile p && !p.IsDefault && IsRunning(p))
             target = p;
         links.Target = target;
+
+        var open = new List<(Profile, string)>();
+        if (on)
+            foreach (var (id, inst) in running)
+                if (Config.Find(id) is Profile r && (r.DataDir ?? inst.DataDir ?? ClaudeApp.DefaultDataDir(Config.DefaultDataDir)) is string dir)
+                    open.Add((r, dir));
+        links.Open = open.ToArray();
     }
 
     void DeliverLink(string url, string profileId)
     {
         if (Config.Find(profileId) is not Profile p) return;
         try { links.Deliver(url, p); }
-        catch (Exception ex) { Error("Couldn't open the sign-in link", ex.Message); }
+        catch (Exception ex) { Error("Couldn't open the link", ex.Message); }
     }
 
     void HandleMessage(string msg)

@@ -194,10 +194,10 @@ internal static class Icons
     static Color Lighten(Color c, float amount) => Color.FromArgb(
         (int)(c.R + (255 - c.R) * amount), (int)(c.G + (255 - c.G) * amount), (int)(c.B + (255 - c.B) * amount));
 
-    /// <summary>A .ico whose frames are PNG-compressed, which Windows Vista and later read at every size.</summary>
+    /// <summary>A .ico in the classic layout every Windows icon loader reads: 32-bit bitmaps below 256 px, PNG at 256.</summary>
     static void WriteIco(string path, IList<Bitmap> frames)
     {
-        var pngs = frames.Select(f => { using var ms = new MemoryStream(); f.Save(ms, ImageFormat.Png); return ms.ToArray(); }).ToList();
+        var data = frames.Select(f => f.Width >= 256 ? Png(f) : Dib(f)).ToList();
         using var fs = File.Create(path);
         using var w = new BinaryWriter(fs);
         w.Write((short)0); w.Write((short)1); w.Write((short)frames.Count);
@@ -208,10 +208,42 @@ internal static class Icons
             w.Write((byte)(s >= 256 ? 0 : s)); w.Write((byte)(s >= 256 ? 0 : s));
             w.Write((byte)0); w.Write((byte)0);
             w.Write((short)1); w.Write((short)32);
-            w.Write(pngs[i].Length); w.Write(offset);
-            offset += pngs[i].Length;
+            w.Write(data[i].Length); w.Write(offset);
+            offset += data[i].Length;
         }
-        foreach (var png in pngs) w.Write(png);
+        foreach (var d in data) w.Write(d);
+    }
+
+    static byte[] Png(Bitmap f)
+    {
+        using var ms = new MemoryStream();
+        f.Save(ms, ImageFormat.Png);
+        return ms.ToArray();
+    }
+
+    /// <summary>An icon frame as a BITMAPINFOHEADER, bottom-up BGRA pixels and an empty AND mask.</summary>
+    static byte[] Dib(Bitmap f)
+    {
+        int s = f.Width, maskRow = (s + 31) / 32 * 4;
+        using var ms = new MemoryStream();
+        using var w = new BinaryWriter(ms);
+        w.Write(40); w.Write(s); w.Write(s * 2);           // height covers pixels and mask
+        w.Write((short)1); w.Write((short)32);
+        w.Write(0); w.Write(s * s * 4 + maskRow * s);
+        w.Write(0); w.Write(0); w.Write(0); w.Write(0);
+        var bits = f.LockBits(new Rectangle(0, 0, s, s), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        try
+        {
+            var row = new byte[s * 4];
+            for (int y = s - 1; y >= 0; y--)
+            {
+                System.Runtime.InteropServices.Marshal.Copy(bits.Scan0 + y * bits.Stride, row, 0, row.Length);
+                w.Write(row);
+            }
+        }
+        finally { f.UnlockBits(bits); }
+        w.Write(new byte[maskRow * s]);
+        return ms.ToArray();
     }
 
     static void RgbToHsv(Color c, out double h, out double s, out double v)
